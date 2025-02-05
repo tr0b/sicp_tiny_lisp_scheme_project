@@ -20,21 +20,24 @@
 (define (average x y)
   (/ (+ x y) 2))
 
-(define (sqrt x)
 
-  (define (good-enough? current-guess next-guess)
-    (< (abs ( / (- current-guess next-guess) current-guess )) 0.00000000000000001))
 
-  (define (improve guess)
-    (average guess (/ x guess)))
-  
-  (define (sqrt-iter guess)
-    (if (good-enough? guess (improve guess))
-        guess
-        (sqrt-iter (improve guess))))
-  
-  (sqrt-iter 1.0)
-  )
+; Section 1.3.3 revamps this
+#| (define (sqrt x)
+   
+     (define (good-enough? current-guess next-guess)
+       (< (abs ( / (- current-guess next-guess) current-guess )) 0.00000000000000001))
+   
+     (define (improve guess)
+       (average guess (/ x guess)))
+     
+     (define (sqrt-iter guess)
+       (if (good-enough? guess (improve guess))
+           guess
+           (sqrt-iter (improve guess))))
+     
+     (sqrt-iter 1.0)
+  ) |#
 
 (define (crt-iter guess x)
   (define (good-enough? current-guess next-guess)
@@ -161,8 +164,8 @@
 (define (even? n)
   (= (remainder n 2) 0))
 
-(define golden-ratio (/ ( + 1 (sqrt 5)) 2))
-(define anti-golden-ratio (/ ( + 1 (- (sqrt 5))) 2))
+#| (define golden-ratio (/ ( + 1 (sqrt 5)) 2))
+(define anti-golden-ratio (/ ( + 1 (- (sqrt 5))) 2)) |#
 
 ;(define (fast-expt b n)
 ;  (fast-expt-iter b n 1))
@@ -342,11 +345,10 @@
 
 
 (define (pi-sum a b)
-  (define (pi-term x)
-    (/ 1.0 (* x (+ x 2))))
-  (define (pi-next x)
-    (+ x 4))
-  (sum pi-term a pi-next b))
+  (sum (lambda (x) (/ 1.0 (* x ( + x 2))))
+       a
+       (lambda (x) (+ x 4))
+       b))
 
 #| (define (integral f a b dx)
      (define (add-dx x) (+ x dx))
@@ -486,3 +488,96 @@
                 (else (iter (next a)
                                    result))))
   (iter a null-value))
+
+; 1.3.2 let and lambda
+
+#| (define (f x y)
+     (let ((a (+ 1 (* x y)))
+           (b (- 1 y)))
+     (+ (* x ( square a))
+        (* y b)
+     (* a b)))) |#
+
+; Exercise 1.34
+
+(define (f g)
+  (g 2))
+
+; Sending (f f) errors the interpreter, as we eventually evaluate (f g) -> (f f) -> (f 2) -> (2 2).
+; (2 2) is not a procedure, rather, its a primitive, so the execution fails.
+
+; 1.3.3. Procedures as general methods
+
+(define (half-interval-method f a b)
+  (let ((a-value (f a))
+        (b-value (f b)))
+    (cond ((and (negative? a-value) (positive? b-value))
+           (search f a b))
+          ((and (negative? b-value) (positive? a-value))
+           (search f b a))
+          (else
+           (error "Values are not of opposite sign" a b)))))
+
+(define (search f neg-point pos-point)
+  (let ((midpoint (average pos-point neg-point)))
+    (if (close-enough? neg-point pos-point)
+        midpoint
+        (let ((test-value (f midpoint)))
+          (cond ((positive? test-value)
+                 (search f neg-point midpoint))
+                ((negative? test-value)
+                 (search f midpoint pos-point))
+                (else midpoint))))))
+
+(define (close-enough? x y)
+  (< (abs (- x y)) 0.001))
+
+(define tolerance 0.00001)
+(define (fixed-point f first-guess)
+  (define (close-enough? v1 v2)
+    (< (abs (- v1 v2)) tolerance))
+  (define (try guess)
+    (let ((next (f guess)))
+      (display " *** seq approx -> ")
+      (display guess) (newline)
+      (if (close-enough? guess next)
+          next
+          (try next))))
+  (try first-guess))
+
+; Section 1.3.4 reformulates this sqrt procedure
+; (define (sqrt x)
+;  (fixed-point (lambda (y) (average y (/ x y))) 1.0))
+
+; Exercise 1.35
+(define (golden-ratio)
+  (fixed-point (lambda (x) (+ 1 (/ 1 x))) 1.0))
+
+; Exercise 1.36
+
+; (fixed-point (lambda (x) (/ (log 1000) (log x))) 2.0)
+; (fixed-point (lambda (x) (average x (/ (log 1000) (log x)))) 2.0)
+
+; Exercise 1.37
+
+#| (define (cont-frac n d k)
+     (define (iter i)
+       (if (> i k)
+           0
+           (/ (n i) (+ (d i) (iter (+ i 1))))))
+     (iter 1))
+ |#
+
+(define (cont-frac n d k)
+  (define (iter i result)
+    (if (> i k)
+        result
+        (iter (inc i) (/ (n i) (+ (d i) result)))))
+  (iter 1 1))
+
+(define (average-damp f)
+  (lambda (x) (average x (f x))))
+
+(define (sqrt x)
+  (fixed-point (average-damp (lambda (y) (/ x y)))
+               1.0))
